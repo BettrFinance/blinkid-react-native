@@ -269,7 +269,7 @@
 					"-lc++",
 					"-lz",
 				);
-				PODS_ROOT = " ${SRCROOT}/../../../../../ios/Pods";
+				PODS_ROOT = "${SRCROOT}/../../../../../ios/Pods";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 			};
@@ -297,7 +297,7 @@
 					"-lc++",
 					"-lz",
 				);
-				PODS_ROOT = " ${SRCROOT}/../../../../../ios/Pods";
+				PODS_ROOT = "${SRCROOT}/../../../../../ios/Pods";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 			};
