@@ -1,12 +1,40 @@
 {
-  "name": "blinkid-react-native",
-  "version": "1.4.0",
-  "description": "A small and powerful ID card scanning library. Powered by MicroBlink (www.microblink.com).",
-  "main": "index.js",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/BlinkID/blinkid-react-native.git"
+  "_args": [
+    [
+      "blinkid-react-native@1.4.2",
+      "/Users/unicornrainbows/Work/BettrBank/Code/rn-frontend"
+    ]
+  ],
+  "_from": "blinkid-react-native@1.4.2",
+  "_id": "blinkid-react-native@1.4.2",
+  "_inBundle": false,
+  "_integrity": "sha1-epq5TYFxvVgL0eFVeyMaKrA6Lm0=",
+  "_location": "/blinkid-react-native",
+  "_phantomChildren": {},
+  "_requested": {
+    "type": "version",
+    "registry": true,
+    "raw": "blinkid-react-native@1.4.2",
+    "name": "blinkid-react-native",
+    "escapedName": "blinkid-react-native",
+    "rawSpec": "1.4.2",
+    "saveSpec": null,
+    "fetchSpec": "1.4.2"
   },
+  "_requiredBy": [
+    "/"
+  ],
+  "_resolved": "https://registry.npmjs.org/blinkid-react-native/-/blinkid-react-native-1.4.2.tgz",
+  "_spec": "1.4.2",
+  "_where": "/Users/unicornrainbows/Work/BettrBank/Code/rn-frontend",
+  "author": {
+    "name": "MicroBlink"
+  },
+  "bugs": {
+    "url": "https://github.com/BlinkID/blinkid-react-native/issues"
+  },
+  "description": "A small and powerful ID card scanning library. Powered by MicroBlink (www.microblink.com).",
+  "homepage": "https://github.com/BlinkID/blinkid-react-native",
   "keywords": [
     "microblink",
     "react-native",
@@ -17,11 +45,12 @@
     "ios",
     "android"
   ],
-  "author": "MicroBlink",
   "license": "MIT",
-  "homepage": "https://github.com/BlinkID/blinkid-react-native",
-  "bugs": {
-    "url": "https://github.com/BlinkID/blinkid-react-native/issues"
+  "main": "index.js",
+  "name": "blinkid-react-native",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BlinkID/blinkid-react-native.git"
   },
   "rnpm": {
     "android": {
@@ -30,5 +59,6 @@
     "ios": {
       "sourceDir": "./src/ios"
     }
-  }
+  },
+  "version": "1.4.2"
 }

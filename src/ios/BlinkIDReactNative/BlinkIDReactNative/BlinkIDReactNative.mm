@@ -10,10 +10,15 @@
 #import "BlinkIDReactNative.h"
 #import <React/RCTConvert.h>
 #import <MicroBlink/MicroBlink.h>
+#import "PPCameraOverlayViewController.h"
 
 @interface BlinkIDReactNative () <PPScanningDelegate>
 
 @property (nonatomic, assign) BOOL enableBeep;
+@property (nonatomic, assign) BOOL scanBack;
+@property (nonatomic, strong) NSString* instructionTxt;
+@property (nonatomic, strong)  PPCameraOverlayViewController *overlayViewController;
+
 
 @property (nonatomic) PPCameraType cameraType;
 
@@ -54,6 +59,10 @@ static NSString* const kOptionShouldReturnSuccessfulImageJsKey = @"shouldReturnS
 static NSString* const kOptionReturnFaceImageJsKey = @"shouldReturnFaceImage";
 static NSString* const kRecognizersArrayJsKey = @"recognizers";
 
+// CUSTOM RN keys
+static NSString* const kOptionScanBack = @"scanBack";
+static NSString* const kOptionInstructionTxt = @"instructionTxt";
+
 // js keys for recognizer types
 static NSString* const kRecognizerMRTDJsKey = @"RECOGNIZER_MRTD";
 static NSString* const kRecognizerUSDLJsKey = @"RECOGNIZER_USDL";
@@ -88,6 +97,9 @@ static NSString* const kMyKadBirthDate = @"ownerBirthDate";
 static NSString* const MBErrorDomain = @"microblink.error";
 
 @implementation BlinkIDReactNative
+
+
+PPCameraOverlayViewController *overlayViewController;
 
 RCT_EXPORT_MODULE();
 
@@ -138,7 +150,14 @@ RCT_REMAP_METHOD(scan, scan:(NSString *)key withOptions:(NSDictionary*)scanOptio
     }
 
     self.enableBeep = [[scanOptions valueForKey:kOptionEnableBeepKey] boolValue];
+    self.scanBack = [[scanOptions valueForKey:kOptionScanBack] boolValue];
+    self.instructionTxt = [scanOptions valueForKey:kOptionInstructionTxt];
+    
 
+    NSLog(@"INSTRUCTION TEXT");
+    NSLog(self.instructionTxt);
+    NSLog(self.scanBack ? @"Yes" : @"No");
+    
     self.promiseResolve = resolve;
     self.promiseReject  = reject;
     
@@ -164,8 +183,23 @@ RCT_REMAP_METHOD(scan, scan:(NSString *)key withOptions:(NSDictionary*)scanOptio
         return;
     }
     
-    /** Allocate and present the scanning view controller */
+    /** Allocate and present the scanning view controller
     UIViewController<PPScanningViewController>* scanningViewController = [PPViewControllerFactory cameraViewControllerWithDelegate:self coordinator:coordinator error:nil];
+    */
+    
+    /*
+    PPCameraOverlayViewController *overlayViewController =
+    [[PPCameraOverlayViewController alloc] initWithNibName:@"PPCameraOverlayViewController2" bundle:nil withOptions:scanOptions];
+    NSLog(@"BBLINK HERE2 %@",overlayViewController);
+    */
+    
+    
+    overlayViewController = [[PPCameraOverlayViewController alloc] initWithOptions:scanOptions];
+    NSLog(@"BBLINK HERE2 %@",overlayViewController);
+    
+    UIViewController<PPScanningViewController>* scanningViewController =
+    [PPViewControllerFactory cameraViewControllerWithDelegate:self
+                                        overlayViewController:overlayViewController coordinator:coordinator error:nil];
     
     // allow rotation if VC is displayed as a modal view controller
     scanningViewController.autorotate = YES;
@@ -173,7 +207,7 @@ RCT_REMAP_METHOD(scan, scan:(NSString *)key withOptions:(NSDictionary*)scanOptio
     
     UIViewController *rootViewController = [[[UIApplication sharedApplication] keyWindow] rootViewController];
     dispatch_sync(dispatch_get_main_queue(), ^{
-        [rootViewController presentViewController:scanningViewController animated:YES completion:nil];
+        [rootViewController presentViewController:scanningViewController animated:NO completion:nil];
     });
     
 }
@@ -254,6 +288,7 @@ RCT_REMAP_METHOD(scan, scan:(NSString *)key withOptions:(NSDictionary*)scanOptio
     }
     
     if ([self shouldUseDocumentFaceRecognizer]) {
+        NSLog(@"SHOULD USE FACE");
         [settings.scanSettings addRecognizerSettings:[self documentFaceRecognizerSettings]];
     }
     
@@ -264,6 +299,7 @@ RCT_REMAP_METHOD(scan, scan:(NSString *)key withOptions:(NSDictionary*)scanOptio
     if ([self shouldUsePDF417Recognizer]) {
         [settings.scanSettings addRecognizerSettings:[self pdf417RecognizerSettings]];
     }
+   
 
     /** 4. Initialize the Scanning Coordinator object */
     
@@ -385,7 +421,7 @@ RCT_REMAP_METHOD(scan, scan:(NSString *)key withOptions:(NSDictionary*)scanOptio
     [dict setObject:kDocumentFaceResultType forKey:kResultType];
 }
 
-- (void)setDictionary:(NSMutableDictionary *)dict withMyKadRecognizerResult:(PPMyKadRecognizerResult *)myKadResult {
+- (void)setDictionary:(NSMutableDictionary *)dict withMyKadRecognizerResult:(PPMyKadFrontRecognizerResult *)myKadResult {
     NSMutableDictionary *stringElements = [NSMutableDictionary dictionaryWithDictionary:[myKadResult getAllStringElements]];
     [stringElements setObject:myKadResult.rawOwnerBirthDate forKey:kMyKadBirthDate];
     [dict setObject:stringElements forKey:kFields];
@@ -440,8 +476,8 @@ RCT_REMAP_METHOD(scan, scan:(NSString *)key withOptions:(NSDictionary*)scanOptio
             [resultArray addObject:dict];
         }
         
-        if ([result isKindOfClass:[PPMyKadRecognizerResult class]]) {
-            PPMyKadRecognizerResult *myKadDecoderResult = (PPMyKadRecognizerResult *)result;
+        if ([result isKindOfClass:[PPMyKadFrontRecognizerResult class]]) {
+            PPMyKadFrontRecognizerResult *myKadDecoderResult = (PPMyKadFrontRecognizerResult *)result;
             
             NSMutableDictionary *dict = [[NSMutableDictionary alloc] init];
             [self setDictionary:dict withMyKadRecognizerResult:myKadDecoderResult];
@@ -502,7 +538,7 @@ RCT_REMAP_METHOD(scan, scan:(NSString *)key withOptions:(NSDictionary*)scanOptio
 
 - (void) dismissScanningView {
     [self reset];
-    [[self getRootViewController] dismissViewControllerAnimated:YES completion:nil];
+    [[self getRootViewController] dismissViewControllerAnimated:NO completion:nil];
 }
 
 - (void) finishWithScanningResults:(NSDictionary*) results {
@@ -510,13 +546,29 @@ RCT_REMAP_METHOD(scan, scan:(NSString *)key withOptions:(NSDictionary*)scanOptio
         self.promiseResolve(results);
     }
     
-    [self dismissScanningView];
+    //CHANGE IMAGE
+    [overlayViewController setSuccessImage];
+    
+    //START TIMER
+    [NSTimer scheduledTimerWithTimeInterval:3.0
+                                     target:self
+                                   selector:@selector(dismissScanningView)
+                                   userInfo:nil
+                                    repeats:NO];
+    
+    
 }
+
 
 - (UIViewController*) getRootViewController {
     UIViewController *rootViewController = [[[UIApplication sharedApplication] keyWindow] rootViewController];
     
     return rootViewController;
+}
+
+- (NSString*)getInstructionTxt{
+    NSLog(@"GETINSTRUCTIONTXT");
+    return self.instructionTxt;
 }
 
 - (PPMrtdRecognizerSettings *)mrtdRecognizerSettings {
@@ -614,35 +666,77 @@ RCT_REMAP_METHOD(scan, scan:(NSString *)key withOptions:(NSDictionary*)scanOptio
     return documentFaceReconizerSettings;
 }
 
-- (PPMyKadRecognizerSettings *)myKadRecognizerSettings {
+- (PPMyKadFrontRecognizerSettings *)myKadRecognizerSettings {
     
-    PPMyKadRecognizerSettings *myKadRecognizerSettings = [[PPMyKadRecognizerSettings alloc] init];
+    PPMyKadFrontRecognizerSettings *myKadRecognizerSettings = [[PPMyKadFrontRecognizerSettings alloc] init];
     
     myKadRecognizerSettings.showFullDocument = self.shouldReturnCroppedImage;
     
     return myKadRecognizerSettings;
 }
 
-- (PPPdf417RecognizerSettings *)pdf417RecognizerSettings {
 
+
+- (PPBarcodeRecognizerSettings *)pdf417RecognizerSettings {
+    
+    
+    // To specify we want to perform ZXing recognition, initialize the ZXing recognizer settings
+    PPBarcodeRecognizerSettings *barcodeRecognizerSettings = [[PPBarcodeRecognizerSettings alloc] init];
+    
+    // Set this to YES to scan Aztec 2D barcodes
+    barcodeRecognizerSettings.scanAztec = NO;
+    
+    // Set this to YES to scan Code 128 1D barcodes
+    barcodeRecognizerSettings.scanCode128 = NO  ;
+    
+    // Set this to YES to scan Code 39 1D barcodes
+    barcodeRecognizerSettings.scanCode39 = YES;
+    
+    // Set this to YES to scan DataMatrix 2D barcodes
+    barcodeRecognizerSettings.scanDataMatrix = YES;
+    
+    // Set this to YES to scan EAN 13 barcodes
+    barcodeRecognizerSettings.scanEAN13 = YES;
+    
+    // Set this to YES to scan EAN8 barcodes
+    barcodeRecognizerSettings.scanEAN8 = YES;
+    
+    //Set this to YES to scan ITF barcodes
+    barcodeRecognizerSettings.scanITF = YES;
+    
+    // Set this to YES to scan QR barcodes
+    barcodeRecognizerSettings.scanQR = NO;
+    
+    // Set this to YES to scan UPCA barcodes
+    barcodeRecognizerSettings.scanUPCA = YES;
+    
+    // Set this to YES to scan UPCE barcodes
+    barcodeRecognizerSettings.scanUPCE = YES;
+    
+    // Set this to YES to allow scanning barcodes with inverted intensities
+    // (i.e. white barcodes on black background)
+    // NOTE: this options doubles the frame processing time
+    barcodeRecognizerSettings.scanInverse = NO;
+    
+    // Set manatee lib key to unlock all Aztec scanning features
+    //barcodeRecognizerSettings.manateeKey = "<your manatee lib key for Aztec>";
+    
+    
+    return barcodeRecognizerSettings;
+    
+    /*
+    
     PPPdf417RecognizerSettings *pdf417RecognizerSettings = [[PPPdf417RecognizerSettings alloc] init];
-
-    /********* All recognizer settings are set to their default values. Change accordingly. *********/
-
-    /**
-     * Set this to YES to scan even barcode not compliant with standards
-     * For example, malformed PDF417 barcodes which were incorrectly encoded
-     * Use only if necessary because it slows down the recognition process
-     */
+    
     pdf417RecognizerSettings.scanUncertain = NO;
-
-    /**
-     * Set this to YES to scan barcodes which don't have quiet zone (white area) around it
-     * Disable if you need a slight speed boost
-     */
     pdf417RecognizerSettings.allowNullQuietZone = YES;
-
+    
     return pdf417RecognizerSettings;
+     */
+     
 }
+
+
+
 
 @end
