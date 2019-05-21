@@ -1,7 +1,11 @@
 package com.microblink.reactnative;
 
+import java.util.Arrays;
 import android.app.Activity;
 import android.content.Intent;
+import android.os.Bundle;
+import android.os.Parcelable;
+import android.util.Log;
 
 import com.facebook.react.bridge.ActivityEventListener;
 import com.facebook.react.bridge.BaseActivityEventListener;
@@ -10,12 +14,15 @@ import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
 import com.facebook.react.bridge.ReadableMap;
-import com.facebook.react.bridge.ReadableNativeMap;
+import com.facebook.react.bridge.ReadableArray;
 import com.facebook.react.bridge.WritableArray;
+
+
 import com.microblink.MicroblinkSDK;
 import com.microblink.entities.recognizers.RecognizerBundle;
 import com.microblink.intent.IntentDataTransferMode;
 import com.microblink.reactnative.overlays.OverlaySettingsSerializers;
+import com.microblink.entities.recognizers.Recognizer;
 import com.microblink.reactnative.recognizers.RecognizerSerializers;
 import com.microblink.uisettings.ActivityRunner;
 import com.microblink.uisettings.UISettings;
@@ -27,6 +34,7 @@ import com.microblink.locale.LanguageUtils;
 public class MicroblinkModule extends ReactContextBaseJavaModule {
 
     // promise reject message codes
+    private static final String ERROR_CONVERT_TO_BUNDLE = "ERROR_CONVERT_TO_BUNDLE";
     private static final String ERROR_ACTIVITY_DOES_NOT_EXIST = "ERROR_ACTIVITY_DOES_NOT_EXIST";
     private static final String ERROR_LICENSE_KEY_NOT_SET = "ERROR_LICENSE_KEY_NOT_SET";
     private static final String STATUS_SCAN_CANCELED = "STATUS_SCAN_CANCELED";
@@ -40,6 +48,7 @@ public class MicroblinkModule extends ReactContextBaseJavaModule {
      * Request code for scan activity
      */
     private static final int REQUEST_CODE = 1337;
+    private static final int MULTIPLE_SCAN_REQUEST_CODE = 1338;
 
 
     private Promise mScanPromise;
@@ -59,6 +68,35 @@ public class MicroblinkModule extends ReactContextBaseJavaModule {
     }
 
     @ReactMethod
+    public void scanMultipleWithCamera(ReadableMap jsonOverlaySettings, ReadableMap jsonRecognizerCollection, ReadableMap license, Promise promise) {
+        Activity currentActivity = getCurrentActivity();
+        if (currentActivity == null) {
+            promise.reject(ERROR_ACTIVITY_DOES_NOT_EXIST, "Activity does not exist");
+            return;
+        }
+
+        if (!license.hasKey(PARAM_LICENSE_KEY)) {
+            promise.reject(ERROR_LICENSE_KEY_NOT_SET, "License key is not set");
+            return;
+        }
+
+        mScanPromise = promise;
+        setLicense(license);
+
+        ReadableArray recognizerArray = jsonRecognizerCollection.getArray("recognizerArray");
+        int numRecognizers = recognizerArray.size();
+        Parcelable[] recognizers = new Parcelable[numRecognizers];
+        for (int i = 0; i < numRecognizers; ++i) {
+            recognizers[ i ] = RecognizerSerializers.INSTANCE.getRecognizerSerialization(recognizerArray.getMap(i)).createRecognizer(recognizerArray.getMap(i));
+        }
+
+        Intent intent = new Intent(currentActivity, CustomVerificationFlowActivity.class);
+        intent.putExtra("recognizers", recognizers);
+
+        currentActivity.startActivityForResult(intent, MULTIPLE_SCAN_REQUEST_CODE);
+    }
+
+    @ReactMethod
     public void scanWithCamera(ReadableMap jsonOverlaySettings, ReadableMap jsonRecognizerCollection, ReadableMap license, Promise promise) {
         Activity currentActivity = getCurrentActivity();
         if (currentActivity == null) {
@@ -66,22 +104,14 @@ public class MicroblinkModule extends ReactContextBaseJavaModule {
             return;
         }
 
-        // Store the promise to resolve/reject when scanning is done
-        mScanPromise = promise;
         if (!license.hasKey(PARAM_LICENSE_KEY)) {
             promise.reject(ERROR_LICENSE_KEY_NOT_SET, "License key is not set");
             return;
         }
-        String licenseKey = license.getString(PARAM_LICENSE_KEY);
-        String licensee = null;
-        if (license.hasKey(PARAM_LICENSEE)) {
-            licensee = license.getString(PARAM_LICENSEE);
-        }
-        Boolean showTimeLimitedLicenseKeyWarning = null;
-        if (license.hasKey(PARAM_SHOW_TIME_LIMITED_LICENSE_WARNING)) {
-            showTimeLimitedLicenseKeyWarning = license.getBoolean(PARAM_SHOW_TIME_LIMITED_LICENSE_WARNING);
-        }
-        setLicense(licenseKey, licensee, showTimeLimitedLicenseKeyWarning);
+
+        // Store the promise to resolve/reject when scanning is done
+        mScanPromise = promise;
+        setLicense(license);
 
         mRecognizerBundle = RecognizerSerializers.INSTANCE.deserializeRecognizerCollection(jsonRecognizerCollection);
         UISettings overlaySettings = OverlaySettingsSerializers.INSTANCE.getOverlaySettings(jsonOverlaySettings, mRecognizerBundle);
@@ -96,7 +126,17 @@ public class MicroblinkModule extends ReactContextBaseJavaModule {
         ActivityRunner.startActivityForResult(getCurrentActivity(), REQUEST_CODE, overlaySettings);
     }
 
-    private void setLicense( String licenseKey, String licensee, Boolean showTimeLimitedLicenseKeyWarning ) {
+    private void setLicense(ReadableMap license ) {
+        String licenseKey = license.getString(PARAM_LICENSE_KEY);
+        String licensee = null;
+        if (license.hasKey(PARAM_LICENSEE)) {
+            licensee = license.getString(PARAM_LICENSEE);
+        }
+        Boolean showTimeLimitedLicenseKeyWarning = null;
+        if (license.hasKey(PARAM_SHOW_TIME_LIMITED_LICENSE_WARNING)) {
+            showTimeLimitedLicenseKeyWarning = license.getBoolean(PARAM_SHOW_TIME_LIMITED_LICENSE_WARNING);
+        }
+
         if (showTimeLimitedLicenseKeyWarning != null) {
             MicroblinkSDK.setShowTimeLimitedLicenseWarning(showTimeLimitedLicenseKeyWarning);
         }
@@ -125,6 +165,24 @@ public class MicroblinkModule extends ReactContextBaseJavaModule {
                         mRecognizerBundle.loadFromIntent(data);
 
                         WritableArray resultList = RecognizerSerializers.INSTANCE.serializeRecognizerResults(mRecognizerBundle.getRecognizers());
+
+                        mScanPromise.resolve(resultList);
+                    } else if (resultCode == Activity.RESULT_CANCELED) {
+                        rejectPromise(STATUS_SCAN_CANCELED, "Scanning has been canceled");
+                    }
+                    mScanPromise = null;
+                }
+            } else if (requestCode == MULTIPLE_SCAN_REQUEST_CODE) {
+                if (mScanPromise != null) {
+                    if (resultCode == Activity.RESULT_OK) {
+                        Parcelable[] recognizersParcelable = data.getParcelableArrayExtra("results");
+                        Log.d("CUSTOM_VERIFICATION_FLOW", "Result is: " + Arrays.toString(recognizersParcelable));
+                        Recognizer<?,?>[] recognizersResult = Arrays.copyOf(recognizersParcelable, recognizersParcelable.length, Recognizer[].class);
+                        Log.d("CUSTOM_VERIFICATION_FLOW", "recognizersResult is: " + Arrays.toString(recognizersResult));
+
+                        WritableArray resultList = RecognizerSerializers.INSTANCE.serializeRecognizerResults(recognizersResult);
+
+                        Log.d("CUSTOM_VERIFICATION_FLOW", "Result List: " + resultList.toString());
 
                         mScanPromise.resolve(resultList);
                     } else if (resultCode == Activity.RESULT_CANCELED) {
