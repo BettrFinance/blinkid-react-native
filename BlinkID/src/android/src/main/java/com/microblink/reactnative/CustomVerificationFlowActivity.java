@@ -193,11 +193,8 @@ public class CustomVerificationFlowActivity extends Activity {
     private final ScanResultListener mScanResultListener = new ScanResultListener() {
         @Override
         public void onScanningDone(@NonNull RecognitionSuccessType recognitionSuccessType) {
-            // this method is from ScanResultListener and will be called when scanning completes
-            // you can obtain scanning result by calling getResult on each
-            // recognizer that you bundled into RecognizerBundle.
-            // for example:
             Log.d("CUSTOM_VERIFICATION_FLOW", "Scanning done for side: " + currentScanIndex);
+            // TK: Handle successframe grabber recognizer data
             if(currentScanIndex < numRecognizers) {
                 mRecognizerRunnerView.pauseScanning();
                 Recognizer.Result result = getCastedRecognizer(recognizersParcelable[currentScanIndex]).getResult();
@@ -223,40 +220,6 @@ public class CustomVerificationFlowActivity extends Activity {
                     mRecognizerRunnerView.resumeScanning(false);
                 }
             }
-
-            // Note that mRecognizer is stateful object and that as soon as
-            // scanning either resumes or its state is reset
-            // the result object within mRecognizer will be changed. If you
-            // need to create a immutable copy of the result, you can do that
-            // by calling clone() on it, for example:
-
-            // Pdf417Recognizer.Result immutableCopy = result.clone();
-            // Log.d("Result: ", immutableCopy.toString());
-
-            // After this method ends, scanning will be resumed and recognition
-            // state will be retained. If you want to prevent that, then
-            // you should call:
-            // mRecognizerRunnerView.resetRecognitionState();
-            // Note that reseting recognition state will clear internal result
-            // objects of all recognizers that are bundled in RecognizerBundle
-            // associated with RecognizerRunnerView.
-
-            // If you want to pause scanning to prevent receiving recognition
-            // results or mutating result, you should call:
-
-            // mRecognizerRunnerView.pauseScanning();
-
-            // if scanning is paused at the end of this method, it is guaranteed
-            // that result within mRecognizer will not be mutated, therefore you
-            // can avoid creating a copy as described above
-
-            // After scanning is paused, you will have to resume it with:
-
-            // mRecognizerRunnerView.resumeScanning(true);
-
-            // boolean in resumeScanning method indicates whether recognition
-            // state should be automatically reset when resuming scanning - this
-            // includes clearing result of mRecognizer
         }
     };
 
