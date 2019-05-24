@@ -18,6 +18,6 @@
         android:targetSdkVersion="25"/>
 
     <application>
-        <activity android:name=".CustomVerificationFlowActivity" />
+        <activity android:name=".MultipleScanDocumentActivity" />
     </application>
 </manifest>

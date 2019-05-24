@@ -1,11 +1,8 @@
 package com.microblink.reactnative;
 
-import java.util.Arrays;
 import android.app.Activity;
 import android.content.Intent;
-import android.os.Bundle;
 import android.os.Parcelable;
-import android.util.Log;
 
 import com.facebook.react.bridge.ActivityEventListener;
 import com.facebook.react.bridge.BaseActivityEventListener;
@@ -18,11 +15,11 @@ import com.facebook.react.bridge.ReadableArray;
 import com.facebook.react.bridge.WritableArray;
 
 
+import com.microblink.reactnative.overlays.serialization.MultipleScanDocumentActivitySettingsSerialization;
 import com.microblink.MicroblinkSDK;
 import com.microblink.entities.recognizers.RecognizerBundle;
 import com.microblink.intent.IntentDataTransferMode;
 import com.microblink.reactnative.overlays.OverlaySettingsSerializers;
-import com.microblink.entities.recognizers.Recognizer;
 import com.microblink.reactnative.recognizers.RecognizerSerializers;
 import com.microblink.uisettings.ActivityRunner;
 import com.microblink.uisettings.UISettings;
@@ -48,7 +45,6 @@ public class MicroblinkModule extends ReactContextBaseJavaModule {
      * Request code for scan activity
      */
     private static final int REQUEST_CODE = 1337;
-    private static final int MULTIPLE_SCAN_REQUEST_CODE = 1338;
 
 
     private Promise mScanPromise;
@@ -83,17 +79,20 @@ public class MicroblinkModule extends ReactContextBaseJavaModule {
         mScanPromise = promise;
         setLicense(license);
 
+        mRecognizerBundle = RecognizerSerializers.INSTANCE.deserializeRecognizerCollection(jsonRecognizerCollection);
         ReadableArray recognizerArray = jsonRecognizerCollection.getArray("recognizerArray");
         int numRecognizers = recognizerArray.size();
         Parcelable[] recognizers = new Parcelable[numRecognizers];
         for (int i = 0; i < numRecognizers; ++i) {
             recognizers[ i ] = RecognizerSerializers.INSTANCE.getRecognizerSerialization(recognizerArray.getMap(i)).createRecognizer(recognizerArray.getMap(i));
         }
+        Parcelable[] overlaySettings = new MultipleScanDocumentActivitySettingsSerialization().createUISettings(jsonOverlaySettings);
 
-        Intent intent = new Intent(currentActivity, CustomVerificationFlowActivity.class);
+        Intent intent = new Intent(currentActivity, MultipleScanDocumentActivity.class);
         intent.putExtra("recognizers", recognizers);
+        intent.putExtra("overlaySettings", overlaySettings);
 
-        currentActivity.startActivityForResult(intent, MULTIPLE_SCAN_REQUEST_CODE);
+        currentActivity.startActivityForResult(intent, REQUEST_CODE);
     }
 
     @ReactMethod
@@ -165,24 +164,6 @@ public class MicroblinkModule extends ReactContextBaseJavaModule {
                         mRecognizerBundle.loadFromIntent(data);
 
                         WritableArray resultList = RecognizerSerializers.INSTANCE.serializeRecognizerResults(mRecognizerBundle.getRecognizers());
-
-                        mScanPromise.resolve(resultList);
-                    } else if (resultCode == Activity.RESULT_CANCELED) {
-                        rejectPromise(STATUS_SCAN_CANCELED, "Scanning has been canceled");
-                    }
-                    mScanPromise = null;
-                }
-            } else if (requestCode == MULTIPLE_SCAN_REQUEST_CODE) {
-                if (mScanPromise != null) {
-                    if (resultCode == Activity.RESULT_OK) {
-                        Parcelable[] recognizersParcelable = data.getParcelableArrayExtra("results");
-                        Log.d("CUSTOM_VERIFICATION_FLOW", "Result is: " + Arrays.toString(recognizersParcelable));
-                        Recognizer<?,?>[] recognizersResult = Arrays.copyOf(recognizersParcelable, recognizersParcelable.length, Recognizer[].class);
-                        Log.d("CUSTOM_VERIFICATION_FLOW", "recognizersResult is: " + Arrays.toString(recognizersResult));
-
-                        WritableArray resultList = RecognizerSerializers.INSTANCE.serializeRecognizerResults(recognizersResult);
-
-                        Log.d("CUSTOM_VERIFICATION_FLOW", "Result List: " + resultList.toString());
 
                         mScanPromise.resolve(resultList);
                     } else if (resultCode == Activity.RESULT_CANCELED) {
