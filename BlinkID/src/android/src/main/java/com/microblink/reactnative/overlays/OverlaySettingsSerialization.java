@@ -1,5 +1,7 @@
 package com.microblink.reactnative.overlays;
 
+import android.os.Parcelable;
+
 import com.facebook.react.bridge.ReadableMap;
 import com.microblink.entities.recognizers.RecognizerBundle;
 import com.microblink.uisettings.UISettings;
